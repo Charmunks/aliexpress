@@ -1,12 +1,54 @@
 require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
+
+const CACHE_FILE = path.join(__dirname, 'api-cache.json');
 
 /**
- * Search AliExpress products by keyword using RapidAPI
- * @param {Object} options - Search options
- * @param {string} options.q - Search query/keyword (required)
+ * Load cache from file
+ * @returns {Object} 
+ */
+function loadCache() {
+    try {
+        if (fs.existsSync(CACHE_FILE)) {
+            const data = fs.readFileSync(CACHE_FILE, 'utf8');
+            return JSON.parse(data);
+        }
+    } catch (error) {
+        console.warn('Error loading cache:', error.message);
+    }
+    return {};
+}
+
+/**
+ * Save cache to file
+ * @param {Object} cache 
+ */
+function saveCache(cache) {
+    try {
+        fs.writeFileSync(CACHE_FILE, JSON.stringify(cache, null, 2), 'utf8');
+    } catch (error) {
+        console.error('Error saving cache:', error.message);
+    }
+}
+
+/**
+ * make cache key based on search 
+ * @param {Object} options 
+ * @returns {string} 
+ */
+function getCacheKey(options) {
+    const { q, page, sort } = options;
+    return `${q}|${page}|${sort}`;
+}
+
+/**
+ * search aliexpress
+ * @param {Object} options 
+ * @param {string} options.q - Search query
  * @param {number} options.page - Page number (default: 1)
  * @param {string} options.sort - Sort method: 'default', 'orders', 'newest', 'price_low', 'price_high' (default: 'default')
- * @param {string|string[]} options.rapidApiKey - RapidAPI key(s) - can be a single key or array of keys (defaults to RAPIDAPI_KEY from .env)
+ * @param {string|string[]} options.rapidApiKey - api keys
  * @returns {Promise<Object>} Search 
  */
 async function searchAliExpress(options) {
@@ -19,6 +61,14 @@ async function searchAliExpress(options) {
 
     if (!q) {
         throw new Error('Search query (q) is required');
+    }
+
+    const cacheKey = getCacheKey({ q, page, sort });
+    const cache = loadCache();
+    
+    if (cache[cacheKey]) {
+        console.log('Returning cached results for:', cacheKey);
+        return cache[cacheKey];
     }
     if (!rapidApiKey) {
         throw new Error('RapidAPI key is required. Set RAPIDAPI_KEY in .env file');
@@ -81,6 +131,11 @@ async function searchAliExpress(options) {
             })) || [];
 
             console.log(`Successfully retrieved results using API key ${i + 1}`);
+            
+            // Save to cache
+            cache[cacheKey] = results;
+            saveCache(cache);
+            
             return results;
         } catch (error) {
             lastError = error;
