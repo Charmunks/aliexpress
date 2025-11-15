@@ -84,8 +84,8 @@ async function searchAliExpress(options) {
             const results = data.result?.resultList?.slice(0, 3).map(item => ({
                 title: item.item?.title,
                 price: item.item?.sku?.def?.promotionPrice,
-                image: item.item?.image,
-                url: item.item?.itemUrl
+                image: item.item?.image ? `https:${item.item.image}` : item.item?.image,
+                url: item.item?.itemUrl ? `https:${item.item.itemUrl}` : item.item?.itemUrl
             })) || [];
 
             console.log(`Successfully retrieved results using API key ${i + 1}`);
